@@ -4,18 +4,7 @@ import random
 import math
 from enum import Enum, auto
 
-def draw_crack(surface, start, end, thickness):
-    pygame.draw.line(surface, (255, 255, 255), start, end, thickness)
 
-def create_crack(surface, start, end, thickness, depth=0):
-    if thickness < 1 or depth > 20:
-        return
-    draw_crack(surface, start, end, thickness)
-    length = math.hypot(end[0] - start[0], end[1] - start[1])
-    num_branches = random.randint(2, 4)
-    for _ in range(num_branches):
-        angle = math.atan2(end[1] - start[1], end[0] - start[0])
-        angle += math.pi / 2
         
 
 
@@ -36,11 +25,6 @@ class Block(pygame.sprite.Sprite):
         self.rect = img.get_rect()
         self.life = 3
 
-    def add_image(self, img2, img3):
-        self.image2 = img2
-        self.image3 = img3
-
-
 # 농구공 클래스
 class Ball(pygame.sprite.Sprite):
     def __init__(self):
@@ -58,6 +42,36 @@ class Ball(pygame.sprite.Sprite):
 pygame.init()
 screen = pygame.display.set_mode((1200, 768))
 
+
+def draw_crack(surface, start, end, thickness):
+    pygame.draw.line(surface, (0, 0, 0), start, end, thickness)
+
+def create_crack(surface, start, end, thickness, depth=0):
+    if thickness < 1 or depth > 20:
+        return
+    draw_crack(surface, start, end, thickness)
+    length = math.hypot(end[0] - start[0], end[1] - start[1])
+    num_branches = random.randint(3, 5)
+    for _ in range(num_branches):
+        center_x = screen.get_rect().centerx
+        center_y = screen.get_rect().centery
+
+        angle = math.atan2(center_y-end[1], center_x-end[0])
+        angle += random.uniform(-2, 2)
+
+        new_length = random.uniform(0.3, 1.4)*length
+        dx = end[0] + new_length * math.cos(angle)
+        dy = end[1] + new_length * math.sin(angle)
+        new_end = (dx, dy)
+        create_crack(surface, end, new_end, thickness - 1, depth+1)
+
+
+
+
+
+
+
+
 # 벽돌
 brick_image = [pygame.image.load(r"brick1.png").convert(),
          pygame.image.load(r"brick\brick2.png").convert(),
@@ -69,27 +83,7 @@ brick_image = [pygame.image.load(r"brick1.png").convert(),
          pygame.image.load(r"brick\brick8.png").convert()
          ]
 
-# 금간 벽돌
-broken_brick1 = [pygame.image.load(r"broken_brick\brick1.png").convert(),
-                 pygame.image.load(r"broken_brick\brick2.png").convert(),
-                 pygame.image.load(r"broken_brick\brick3.png").convert(),
-                 pygame.image.load(r"broken_brick\brick4.png").convert(),
-                 pygame.image.load(r"broken_brick\brick5.png").convert(),
-                 pygame.image.load(r"broken_brick\brick6.png").convert(),
-                 pygame.image.load(r"broken_brick\brick7.png").convert(),
-                 pygame.image.load(r"broken_brick\brick8.png").convert()
-                 ]
 
-#  금간 벽돌 2
-broken_brick2 = [pygame.image.load(r"broken_brick2\brick1.png").convert(),
-                 pygame.image.load(r"broken_brick2\brick2.png").convert(),
-                 pygame.image.load(r"broken_brick2\brick3.png").convert(),
-                 pygame.image.load(r"broken_brick2\brick4.png").convert(),
-                 pygame.image.load(r"broken_brick2\brick5.png").convert(),
-                 pygame.image.load(r"broken_brick2\brick6.png").convert(),
-                 pygame.image.load(r"broken_brick2\brick7.png").convert(),
-                 pygame.image.load(r"broken_brick2\brick8.png").convert()
-                 ]
 
 brick_group = pygame.sprite.Group()
 
@@ -97,7 +91,6 @@ for j in range(0, 7):
     for i in range(0, 6):
         rand = random.randrange(8)
         brick = Block(brick_image[rand])
-        brick.add_image(broken_brick1[rand], broken_brick2[rand])
         brick.rect.x = i * 100 + 300
         brick.rect.y = j * 40
         brick.mask = pygame.mask.from_surface(brick.image)
@@ -232,24 +225,50 @@ while done:
                 pygame.sprite.collide_mask(brick, ball)
             if collision_point:
                 brick.life -= 1
+
+                if brick.rect.top <= ball.rect.centery <= brick.rect.bottom:
+                    ball.velx *= -1
+                elif brick.rect.left <= ball.rect.centerx <= brick.rect.right:
+                    ball.vely *= -1
+                else:
+                    ball.velx *= -1
+                    ball.vely *= -1
+
+
+                if brick.life == 0:
+                    brick_group.remove(brick)
+                    continue
+                
                 count +=1
-                brick.image.set_at(collision_point, (0,0,255) )
-                brick_group.remove(brick)
+                
+                #brick_group.remove(brick)
+
+                start = collision_point
+                center_x = brick.rect.centerx - brick.rect.left
+                center_y = brick.rect.centery - brick.rect.top
+                angle = math.atan2(center_y-start[1], center_x-start[0])
+                length = math.hypot(center_y-start[1], center_x-start[0])
+                new_length = random.uniform(0.8, 1.2)*length
+                x = start[0] + new_length * math.cos(angle)
+                y = start[1] + new_length * math.sin(angle)
+                end = (x, y)
+
+                create_crack(brick.image, start, end, 3)
 
                 collision_point_absolute = \
                     (collision_point[0] + brick.rect.left,
                      collision_point[1] + brick.rect.top)
-                screen.blit(Affect, collision_point_absolute)
+                
+                Affect_rect = Affect.get_rect()
+                Affect_rect.center = collision_point_absolute
+
+                screen.blit(Affect, Affect_rect)
                 
 
                 
-                if brick.rect.top <= ball.rect.centery <= brick.rect.bottom:
-                    ball.velx *= -1
-                elif brick.rect.right <= ball.rect.centerx <= brick.rect.left:
-                    ball.velx *= -1
-                else:
-                    ball.velx *= -1
-                    ball.vely *= -1
+                
+
+                
 
                 
     pygame.display.flip()
